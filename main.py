@@ -60,14 +60,16 @@ def matchBySummoner(encryptedAccountId:str, beginIndex:int = 0) -> json:
     params['beginIndex'] = beginIndex
     req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/' + encryptedAccountId, params=params)
     
-    statCodeHelper(req.status_code, matchBySummoner, encryptedAccountId)
+    if req.status_code != 200:
+        return statCodeHelper(req.status_code, matchBySummoner, encryptedAccountId)
 
     return req.json()
 
 def matchByMatchId(matchId: int) -> json:
     req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matches/' + str(matchId), params=API_KEY)
 
-    statCodeHelper(req.status_code, matchByMatchId, matchId)
+    if req.status_code != 200:
+        return statCodeHelper(req.status_code, matchByMatchId, matchId)
 
     return req.json()
 
@@ -130,7 +132,7 @@ def buildMatchHistory():
         beginIndex = 100
         while(matchListDto["matches"] != []):
             #print(response["matches"])
-            print(matchListDto)
+            #print(matchListDto)
             
             
             #Get all the matches for one player
@@ -146,7 +148,10 @@ def buildMatchHistory():
                 
                 matchId = match['gameId']
                 matchDto = matchByMatchId(matchId)
-                print(matchDto)
+                if matchDto is None:
+                    continue
+                
+#                print(matchDto)
                 seasonId = matchDto['seasonId']
                 gameVersion = matchDto['gameVersion']
 
@@ -166,6 +171,7 @@ def buildMatchHistory():
             matchListDto = matchBySummoner(accountId, beginIndex)
             beginIndex += 100
 
+    conn.commit()
     conn.close()   
 
 

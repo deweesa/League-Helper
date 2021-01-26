@@ -1,5 +1,8 @@
 General:
     ☐ 
 Match History:
-    ☐ Pull info for one Summoner, get all the data
+    ✔ Pull info for one Summoner, get all the data @done(21-01-19 13:47)
+    ✔ Fix the rate limiting issue when pulling for match data @done(21-01-20 10:29)
+    ☐ Fix rate limiting from hit max -> sleep for max time to more of constant rate, either timed response or exp-backoff
+    ☐ Need to check if the match + summoner combo has been added to the table
     ✘ When pulling match data, check to see if that match is in there @cancelled(21-01-19 09:35)
