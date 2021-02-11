@@ -20,7 +20,7 @@ def createTables():
 		      (accountId text primary key, profileIconId integer, revisionDate integer, summonerName text, id text, puuid text, summonerLevel integer)""")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS match
-               (gameId integer, summonerName text, win integer, champion integer, role text, lane text, seasonId integer, gameVersion text)""")
+               (gameId integer, summonerName text, win integer, champion integer, role text, lane text, queue integer, seasonId integer, gameVersion text)""")
     
     conn.close()
 
@@ -36,6 +36,7 @@ def statCodeHelper(status_code, func, param):
     elif status_code == 429 and TIMED_OUT is True:
         print("Sleeping for second timeout warning")
         time.sleep(140)
+        print("\tout of timeout")
         TIMED_OUT = False
         return func(param)
     elif status_code == 429:
@@ -82,6 +83,7 @@ def buildSummoner():
 
     #Checking for each gamer
     for gamer in gamers:
+        print(gamer)
         response = summoner(gamer)
         gamer_info = (response["accountId"], response["profileIconId"], response["revisionDate"], response["name"], response["id"], response["puuid"], response["summonerLevel"])
 
@@ -115,58 +117,75 @@ def getWin(participants: [json], participantId: int) -> int:
 
     return -1
 
-
+#TODO:
+# x Check to see if the game was a custome, playerDto from participants will be empty if that is the case
 def buildMatchHistory():
+    #connect to the db and create the cursor
     conn = sqlite3.connect(DB_PATH)
     curr = conn.cursor()
 
+    #get the accoutnId and summoner name from summoner table
     curr.execute("select accountId, summonerName from summoner;")
 
     query_result = curr.fetchall()
     for row in query_result:
         accountId = row[0]
         summonerName = row[1]
+        print('inserting for ' + summonerName)
 
         matchListDto = matchBySummoner(accountId)
 
         beginIndex = 100
         while(matchListDto["matches"] != []):
-            #print(response["matches"])
-            #print(matchListDto)
-            
-            
             #Get all the matches for one player
             matchList = matchListDto['matches']
 
             #For every match the player has played get the detailed stats
             for match in matchList:
-                #Probably safe to assume that for our group any game played is played together, ie a win for one is a win for all
-                #but I think it's better to avoid that logic keep it general
-                if match['queue'] != 400:
-                    print("Not a 5v5 Draft game, skipping table insertion\n\tSummoner: %s", summonerName)
+                queue = match['queue']
+                if(queue == 0):
+                    print('\tcustom game, skipping insertion')
                     continue
-                
                 matchId = match['gameId']
+
+                #check to see if this match has already been seen from a previous summoners match list
+                curr.execute("select 1 from match where gameId = ?", [matchId])
+                if curr.fetchone() is not None: 
+                    print("\tThis game has already been spoken for, skipping")
+                    continue
+
+                #Now we have the match specifics
                 matchDto = matchByMatchId(matchId)
+
                 if matchDto is None:
                     continue
-                
-#                print(matchDto)
+
                 seasonId = matchDto['seasonId']
                 gameVersion = matchDto['gameVersion']
 
-                participantId = getParticipantId(matchDto['participantIdentities'], accountId)
-                win = getWin(matchDto['participants'], participantId)
+                participantIdentities = matchDto['participantIdentities']
+                participants = matchDto['participants']
 
-                champion = match['champion']
-                role = match['role']
-                lane = match['lane']
+                for participantIdDto in participantIdentities:
+                    summonerName = participantIdDto['player']['summonerName']
 
-                # curr.execute("insert into match values gameId=:gameId, summonerName=:summonerName, win=:win, champion=:champion, role=:role, lane=:lane, seasonId=:seasonId, gameVersion=:gameVersion", 
-                #               {"gameId": matchId, "summonerName": summonerName, "win": win, "champion": champion, "role": role, "lane": lane, "seasonId": seasonId, "gameVersion": gameVersion})
+                    curr.execute('select 1 from summoner where summonerName = ?', [summonerName])
+                    if curr.fetchone() is None: continue
 
-                data_tuple = (matchId, summonerName, win, champion, role, lane, seasonId, gameVersion)
-                curr.execute("insert into match (gameId, summonerName, win, champion, role, lane, seasonId, gameVersion) values (?,?,?,?,?,?,?,?)", data_tuple)
+                    participantId = participantIdDto['participantId']
+
+                    for participantDto in participants:
+                        if participantDto['participantId'] != participantId: continue
+                        #playerDto = participantDto['player']
+                        
+                        champion = participantDto['championId']
+                        win = participantDto['stats']['win']
+                        role = participantDto['timeline']['role']
+                        lane = participantDto['timeline']['lane']
+
+                        curr.execute('insert into match(gameId, summonerName, win, champion, role, lane, queue, seasonid, gameVersion) values(?,?,?,?,?,?,?,?,?)', 
+                        (matchId, summonerName, win, champion, role, lane, queue, seasonId, gameVersion))
+
 
             matchListDto = matchBySummoner(accountId, beginIndex)
             beginIndex += 100
