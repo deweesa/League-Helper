@@ -1,0 +1,15 @@
+# Sensitive Stuff #
+###################
+key.py
+
+# Logs and Databases #
+######################
+*.db*
+*.sql
+*.sqlite
+
+# Extras #
+##########
+*.txt
+*.json
+*.uxf

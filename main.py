@@ -20,8 +20,9 @@ def createTables():
 		      (accountId text primary key, profileIconId integer, revisionDate integer, summonerName text, id text, puuid text, summonerLevel integer)""")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS match
-               (gameId integer, summonerName text, win integer, champion integer, role text, lane text, queue integer, seasonId integer, gameVersion text)""")
+               (gameId integer, summonerName text, win integer, champion integer, role text, lane text, queue integer, seasonId integer, timestamp integer, gameVersion text)""")
     
+    conn.commit()
     conn.close()
 
 
@@ -118,7 +119,7 @@ def getWin(participants: [json], participantId: int) -> int:
     return -1
 
 #TODO:
-# x Check to see if the game was a custome, playerDto from participants will be empty if that is the case
+# x Check to see if the game was a custom, playerDto from participants will be empty if that is the case
 def buildMatchHistory():
     #connect to the db and create the cursor
     conn = sqlite3.connect(DB_PATH)
@@ -162,6 +163,7 @@ def buildMatchHistory():
 
                 seasonId = matchDto['seasonId']
                 gameVersion = matchDto['gameVersion']
+                timestamp = matchDto['gameCreation']
 
                 participantIdentities = matchDto['participantIdentities']
                 participants = matchDto['participants']
@@ -183,8 +185,8 @@ def buildMatchHistory():
                         role = participantDto['timeline']['role']
                         lane = participantDto['timeline']['lane']
 
-                        curr.execute('insert into match(gameId, summonerName, win, champion, role, lane, queue, seasonid, gameVersion) values(?,?,?,?,?,?,?,?,?)', 
-                        (matchId, summonerName, win, champion, role, lane, queue, seasonId, gameVersion))
+                        curr.execute('insert into match(gameId, summonerName, win, champion, role, lane, queue, seasonid, timestamp, gameVersion) values(?,?,?,?,?,?,?,?,?,?)', 
+                                     (matchId, summonerName, win, champion, role, lane, queue, seasonId, timestamp, gameVersion))
 
 
             matchListDto = matchBySummoner(accountId, beginIndex)
@@ -192,6 +194,17 @@ def buildMatchHistory():
 
     conn.commit()
     conn.close()   
+
+
+def updateMatchHistory():
+    #TODO:
+    # can borrow logic from above to check if other players were in the match
+    # for each summoner in the table get their last inserted game 
+    #   the query through until we hit that game
+    conn = sqlite3.connect(DB_PATH)
+    curr = conn.cursor()
+
+
 
 
 if __name__=="__main__":
