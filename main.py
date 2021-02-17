@@ -9,7 +9,7 @@ TIMED_OUT = False
 def main():
    createTables()
    buildSummoner()
-   buildMatchHistory()
+   updateMatchHistory()
 
 #Creates table if they do not exist
 def createTables():
@@ -120,10 +120,14 @@ def getWin(participants: [json], participantId: int) -> int:
 
 #TODO:
 # x Check to see if the game was a custom, playerDto from participants will be empty if that is the case
-def buildMatchHistory():
+def updateMatchHistory():
     #connect to the db and create the cursor
     conn = sqlite3.connect(DB_PATH)
     curr = conn.cursor()
+    inserted = 0
+    #get the timestamp for the most recent game, if the table is empty then timestamp is 0
+    curr.execute("select coalesce(max(timestamp),0) from match;")
+    min_timestamp = curr.fetchone()[0]
 
     #get the accoutnId and summoner name from summoner table
     curr.execute("select accountId, summonerName from summoner;")
@@ -135,14 +139,22 @@ def buildMatchHistory():
         print('inserting for ' + summonerName)
 
         matchListDto = matchBySummoner(accountId)
+        matchList = matchListDto["matches"]
+
+        oldFound = False
 
         beginIndex = 100
-        while(matchListDto["matches"] != []):
-            #Get all the matches for one player
-            matchList = matchListDto['matches']
-
+        while(matchList != []):
             #For every match the player has played get the detailed stats
             for match in matchList:
+                timestamp = match['timestamp']
+                #I think this is working but need to shift it up to the first check
+                if(timestamp <= min_timestamp):
+                    matchList = []
+                    oldFound = True
+                    print("Have reached games already inserted")
+                    break
+
                 queue = match['queue']
                 if(queue == 0):
                     print('\tcustom game, skipping insertion')
@@ -163,7 +175,6 @@ def buildMatchHistory():
 
                 seasonId = matchDto['seasonId']
                 gameVersion = matchDto['gameVersion']
-                timestamp = matchDto['gameCreation']
 
                 participantIdentities = matchDto['participantIdentities']
                 participants = matchDto['participants']
@@ -184,28 +195,20 @@ def buildMatchHistory():
                         win = participantDto['stats']['win']
                         role = participantDto['timeline']['role']
                         lane = participantDto['timeline']['lane']
-
+                        
+                        inserted += 1
                         curr.execute('insert into match(gameId, summonerName, win, champion, role, lane, queue, seasonid, timestamp, gameVersion) values(?,?,?,?,?,?,?,?,?,?)', 
                                      (matchId, summonerName, win, champion, role, lane, queue, seasonId, timestamp, gameVersion))
 
 
-            matchListDto = matchBySummoner(accountId, beginIndex)
+            if oldFound is False:
+                matchListDto = matchBySummoner(accountId, beginIndex)
+                matchList = matchListDto["matches"]
             beginIndex += 100
 
     conn.commit()
     conn.close()   
-
-
-def updateMatchHistory():
-    #TODO:
-    # can borrow logic from above to check if other players were in the match
-    # for each summoner in the table get their last inserted game 
-    #   the query through until we hit that game
-    conn = sqlite3.connect(DB_PATH)
-    curr = conn.cursor()
-
-
-
+    print(str(inserted) + " \"(Game, Summoner)\" pairs inserted")
 
 if __name__=="__main__":
     main()
