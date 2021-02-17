@@ -199,11 +199,13 @@ def updateMatchHistory():
                         inserted += 1
                         curr.execute('insert into match(gameId, summonerName, win, champion, role, lane, queue, seasonid, timestamp, gameVersion) values(?,?,?,?,?,?,?,?,?,?)', 
                                      (matchId, summonerName, win, champion, role, lane, queue, seasonId, timestamp, gameVersion))
+                        conn.commit()
 
 
             if oldFound is False:
                 matchListDto = matchBySummoner(accountId, beginIndex)
                 matchList = matchListDto["matches"]
+
             beginIndex += 100
 
     conn.commit()
