@@ -13,7 +13,7 @@ def main():
 
 #Creates table if they do not exist
 def createTables():
-    conn = sqlite3.connect("D:\\Projects\\League-Helper\\tables.db")
+    conn = sqlite3.connect(DB_PATH)
 
     #create summoner table 
     conn.execute("""CREATE TABLE IF NOT EXISTS summoner
@@ -26,8 +26,13 @@ def createTables():
     conn.close()
 
 
-def statCodeHelper(status_code, func, param):
+def statCodeHelper(request, func, param):
     global TIMED_OUT
+
+    status_code = request.status_code
+    headers = request.headers
+
+    print("\tHeaders = \n\t\t" + headers["X-App-Rate-Limit"] + "\n\t\t" + headers["X-App-Rate-Limit"])
 
     if status_code == 429 and TIMED_OUT is False:
         print("Sleeping for first time out warning")
@@ -44,7 +49,7 @@ def statCodeHelper(status_code, func, param):
         print("there is a bug in the statCodeHelper")
         time.sleep(30)
         return func(param)
-    elif status_code is 400:
+    elif status_code == 400:
         print("Bad Request")
 
 
@@ -52,7 +57,7 @@ def summoner(summonerName: str) -> json:
     req = requests.get('https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/' + summonerName, params=API_KEY)
 
     if req.status_code != 200:
-       return statCodeHelper(req.status_code, summoner, summonerName)
+       return statCodeHelper(req, summoner, summonerName)
 
     return req.json()
 
@@ -63,7 +68,7 @@ def matchBySummoner(encryptedAccountId:str, beginIndex:int = 0) -> json:
     req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/' + encryptedAccountId, params=params)
     
     if req.status_code != 200:
-        return statCodeHelper(req.status_code, matchBySummoner, encryptedAccountId)
+        return statCodeHelper(req, matchBySummoner, encryptedAccountId)
 
     return req.json()
 
@@ -71,7 +76,7 @@ def matchByMatchId(matchId: int) -> json:
     req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matches/' + str(matchId), params=API_KEY)
 
     if req.status_code != 200:
-        return statCodeHelper(req.status_code, matchByMatchId, matchId)
+        return statCodeHelper(req, matchByMatchId, matchId)
 
     return req.json()
 
