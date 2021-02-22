@@ -32,7 +32,7 @@ def statCodeHelper(request, func, param):
     status_code = request.status_code
     headers = request.headers
 
-    print("\tHeaders = \n\t\t" + headers["X-App-Rate-Limit"] + "\n\t\t" + headers["X-App-Rate-Limit"]
+#    print("\tHeaders = \n\t\t" + headers["X-App-Rate-Limit"] + "\n\t\t" + headers["X-App-Rate-Limit"]
 
     if status_code == 429 and TIMED_OUT is False:
         print("Sleeping for first time out warning")
@@ -207,7 +207,7 @@ def updateMatchHistory():
                         conn.commit()
 
 
-            if oldFound is False:
+            if oldFound is True:
                 matchListDto = matchBySummoner(accountId, beginIndex)
                 matchList = matchListDto["matches"]
 
