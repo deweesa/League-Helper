@@ -4,8 +4,6 @@ import sqlite3
 import json
 import time
 
-TIMED_OUT = False
-
 def main():
    createTables()
    buildSummoner()
@@ -26,38 +24,12 @@ def createTables():
     conn.close()
 
 
-def statCodeHelper(request, func, param):
-    global TIMED_OUT
-
-    status_code = request.status_code
-    headers = request.headers
-
-#    print("\tHeaders = \n\t\t" + headers["X-App-Rate-Limit"] + "\n\t\t" + headers["X-App-Rate-Limit"]
-
-    if status_code == 429 and TIMED_OUT is False:
-        print("Sleeping for first time out warning")
-        time.sleep(1)
-        TIMED_OUT = True
-        return func(param)
-    elif status_code == 429 and TIMED_OUT is True:
-        print("Sleeping for second timeout warning")
-        time.sleep(140)
-        print("\tout of timeout")
-        TIMED_OUT = False
-        return func(param)
-    elif status_code == 429:
-        print("there is a bug in the statCodeHelper")
-        time.sleep(30)
-        return func(param)
-    elif status_code == 400:
-        print("Bad Request")
-
-
 def summoner(summonerName: str) -> json:
     req = requests.get('https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/' + summonerName, params=API_KEY)
 
-    if req.status_code != 200:
-       return statCodeHelper(req, summoner, summonerName)
+    while(req.status_code == 429):
+        time.sleep(int(req.headers['retry-after']))   
+        req = requests.get('https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/' + summonerName, params=API_KEY)
 
     return req.json()
 
@@ -67,16 +39,18 @@ def matchBySummoner(encryptedAccountId:str, beginIndex:int = 0) -> json:
     params['beginIndex'] = beginIndex
     req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/' + encryptedAccountId, params=params)
     
-    if req.status_code != 200:
-        return statCodeHelper(req, matchBySummoner, encryptedAccountId)
+    while(req.status_code == 429):
+        time.sleep(int(req.headers['retry-after']))
+        req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/' + encryptedAccountId, params=params)
 
     return req.json()
 
 def matchByMatchId(matchId: int) -> json:
     req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matches/' + str(matchId), params=API_KEY)
 
-    if req.status_code != 200:
-        return statCodeHelper(req, matchByMatchId, matchId)
+    while(req.status_code == 429):
+        time.sleep(int(req.headers['retry-after']))
+        req = requests.get('https://na1.api.riotgames.com/lol/match/v4/matches/' + str(matchId), params=API_KEY)
 
     return req.json()
 
